@@ -1,0 +1,24 @@
+name: mern-notes-tests
+services:
+  mongo-test:
+    image: mongo:7
+    tmpfs:
+      - /data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "quit(db.adminCommand('ping').ok ? 0 : 1)"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+  backend-test:
+    build:
+      context: ./backend
+      target: test
+    environment:
+      TEST_MONGO_URI: mongodb://mongo-test:27017/mern_notes_test
+    depends_on:
+      mongo-test:
+        condition: service_healthy
+  frontend-test:
+    build:
+      context: ./frontend
+      target: test

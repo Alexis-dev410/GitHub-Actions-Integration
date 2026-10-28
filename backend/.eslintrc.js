@@ -8,6 +8,7 @@ module.exports = {
         "plugin:@typescript-eslint/recommended"
     ],
     "overrides": [
+        { "files": ["tests/**/*.ts"], "env": { "jest": true } }
     ],
     "parser": "@typescript-eslint/parser",
     "parserOptions": {
