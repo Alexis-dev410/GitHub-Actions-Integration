@@ -6,24 +6,69 @@ single-job structure to run checks, build both images, and publish to GHCR on
 
 ## 1. Implement the workflow
 
-Complete the README's local checks, then work on a `ci/github-actions` branch.
-Write the workflow name, `on: [push]`, one `ubuntu-latest` job, and checkout as in
-the calculator example. Add the supplied blocks below in order. The first is
-top-level configuration; the remaining blocks belong under the job's `steps`.
+Complete the README's local checks. Work directly on **your own fork's `main`**
+for this lab; no feature branch or PR is required to complete it.
+
+Create `.github/workflows/ci-cd.yml` with this starting structure:
+
+```yaml
+name: MERN checks and image delivery
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the project files
+        uses: actions/checkout@v7
+
+      # Add the supplied steps below here, in order.
+```
+
+This extends the calculator's push-only trigger. The workflow name appears in
+Actions; `ci` is the job identifier. Checkout makes the repository files available
+on the Ubuntu runner. Add each supplied step below at the same indentation as
+`- name: Get the project files` (six spaces). `run` and `uses` belong two spaces
+inside their step. Do not add another `jobs`, `steps`, or `permissions` block.
+
+### When the workflow runs
+
+| Event | Checks and image builds | GHCR publication |
+| --- | --- | --- |
+| Push a commit to your `main` | Run | Run if all prior checks/builds pass |
+| Open a PR targeting your `main` | Run | Skipped |
+| Push more commits to that open PR's source branch (`synchronize`) | Run | Skipped |
+| Reopen a PR targeting your `main` | Run | Skipped |
+| Push to another branch without an open PR targeting `main` | Not triggered | Not triggered |
+| Merge a PR into `main` | The resulting push runs the workflow | Run if successful |
+
+For `pull_request`, `branches: [main]` filters the **target** branch, not the source
+branch. PR checks validate the proposed merge before acceptance; checkout normally
+uses GitHub's temporary merge commit. The PR's source can be a branch or fork.
+The PR must target **your repository**, not the instructor's repository.
+
+You will use the push-to-main path in this individual lab. Keep the PR trigger in
+the workflow so future proposed changes can be checked before merging. A PR run
+must never publish images; the main-only conditions supplied below enforce that.
+Use `pull_request`, not `pull_request_target`, for these code checks.
 
 Node runs inside the images, so omit `setup-node`. GHCR publishing replaces the
 calculator's artifact upload. The completed workflow is yours to assemble.
 
-### Permissions — top level
-
-```yaml
-permissions:
-  contents: read
-  packages: write
-```
-
-`packages: write` allows the automatic `GITHUB_TOKEN` to publish packages.
-No personal token or additional repository secret is needed for this lab.
+The scaffold's `contents: read` permits checkout; `packages: write` allows the
+automatic `GITHUB_TOKEN` to publish packages. No personal token or additional
+repository secret is needed. Fork-origin PRs generally receive a read-only token;
+publication is skipped on all PR runs regardless.
 
 ### Tests and checks — after checkout
 
@@ -98,8 +143,9 @@ the preceding steps.
     docker push "$FRONTEND_IMAGE:latest"
 ```
 
-The condition restricts publishing to pushes on `main`. Branch pushes still test
-and build. The token is supplied by GitHub. Major action tags match the calculator
+The condition requires both a `push` event and the `main` branch. PR runs test
+and build but skip login and publication. The token is supplied by GitHub.
+Major action tags match the calculator
 example's style; maintained release pipelines should pin reviewed commit SHAs.
 
 ### Cleanup — last step
@@ -114,15 +160,21 @@ example's style; maintained release pipelines should pin reviewed commit SHAs.
 
 ## 2. Verify the workflow
 
-1. Push your branch. Confirm checks and builds pass and publishing is skipped.
-2. Break one test expectation and push. Confirm failure blocks later steps.
-   Restore it and confirm a passing run.
-3. Open and merge a PR into **your own fork's main**.
-4. Confirm the main run publishes both packages. Make both packages public for
-   unauthenticated pulls in the next step.
+1. Commit the assembled workflow directly to your fork's `main` and push. Inspect
+   the Actions run: checks, image builds, GHCR login, and publication should pass.
+2. Break one supplied test expectation, commit on `main`, and push. Confirm the
+   failed test skips subsequent build/login/publish steps, while cleanup still
+   runs. Images from the earlier successful run remain in GHCR; the failing
+   commit should not have new published images.
+3. Restore the expectation, commit, and push to `main`. Confirm all checks pass
+   and images with this successful run's commit tag are published.
+4. Find both packages and make them public for unauthenticated pulls below.
 
-With `on: [push]`, branch commits trigger checks; opening a PR does not trigger
-an additional run.
+Optional PR verification (not required for submission): after the workflow exists
+on main, open a PR from a temporary branch into your fork's main. Confirm checks
+and builds run but login/publication are skipped. Push another commit to the PR
+branch to observe `synchronize`. Closing without merging does not publish;
+merging produces a main-branch push and a new publishing run.
 
 ## 3. Run the published images
 
@@ -175,3 +227,4 @@ blocks publication on failure. Distinguish image delivery from deployment.
 
 - [Publishing Docker images](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images)
 - [Working with GHCR](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
+- [Workflow events and pull requests](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request)
