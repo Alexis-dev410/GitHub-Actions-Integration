@@ -7,3 +7,5 @@ Checkpoint 3: https://github.com/Alexis-dev410/lab2/actions/runs/40755499754
 Checkpoint 4: https://github.com/Alexis-dev410/lab2/actions/runs/40758237908
 
 Checkpoint 5: https://github.com/Alexis-dev410/lab2/actions/runs/40762273939/job/123077052364
+
+Checkpoint 6: https://github.com/Alexis-dev410/lab2/actions/runs/40762273939
