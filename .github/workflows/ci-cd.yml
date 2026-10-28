@@ -14,5 +14,21 @@ jobs:
       - name: Get the project files
         uses: actions/checkout@v7
 
-      # Run 1: keep only checkout.
-      # At Checkpoint 2, add the test and cleanup steps here.
+      - name: Build images for the supplied tests
+        run: docker compose -f compose.test.yaml build
+
+      - name: Run backend API tests
+        run: docker compose -f compose.test.yaml run --rm backend-test
+
+      - name: Run frontend tests
+        run: docker compose -f compose.test.yaml run --rm frontend-test
+
+      - name: Check backend code style
+        run: docker compose -f compose.test.yaml run --rm backend-test npm run lint
+
+      - name: Check backend TypeScript
+        run: docker compose -f compose.test.yaml run --rm backend-test npm run typecheck
+
+      - name: Clean up the test environment
+        if: always()
+        run: docker compose -f compose.test.yaml down --volumes
