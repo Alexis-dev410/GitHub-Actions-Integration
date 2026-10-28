@@ -39,7 +39,8 @@ jobs:
       - name: Get the project files
         uses: actions/checkout@v7
 
-      # Add the supplied steps below here, in order.
+      # Run 1: keep only checkout.
+      # At Checkpoint 2, add the test and cleanup steps here.
 ```
 
 Keep a descriptive workflow name and the checkout step. The `push` trigger is
