@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   ci:
@@ -43,6 +44,22 @@ jobs:
       - name: Build frontend image
         run: |
           docker build --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" -t "$FRONTEND_IMAGE:latest" -t "$FRONTEND_IMAGE:sha-$GITHUB_SHA" ./frontend
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish both images
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker push "$BACKEND_IMAGE:sha-$GITHUB_SHA"
+          docker push "$FRONTEND_IMAGE:sha-$GITHUB_SHA"
+          docker push "$BACKEND_IMAGE:latest"
+          docker push "$FRONTEND_IMAGE:latest"
 
       - name: Clean up the test environment
         if: always()
