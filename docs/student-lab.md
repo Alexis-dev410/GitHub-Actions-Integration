@@ -295,7 +295,7 @@ docker compose -f compose.published.yaml down
 
 ## Submit
 
-- Repository/workflow link.
+- Repository & packages link.
 - Live local demonstration at Checkpoint 6 (Call me when you are done).
 
 
