@@ -66,9 +66,7 @@ Node runs inside the images, so omit `setup-node`. GHCR publishing replaces the
 calculator's artifact upload. The completed workflow is yours to assemble.
 
 The scaffold's `contents: read` permits checkout; `packages: write` allows the
-automatic `GITHUB_TOKEN` to publish packages. No personal token or additional
-repository secret is needed. Fork-origin PRs generally receive a read-only token;
-publication is skipped on all PR runs regardless.
+automatic `GITHUB_TOKEN` to publish packages. 
 
 ### Tests and checks — after checkout
 
