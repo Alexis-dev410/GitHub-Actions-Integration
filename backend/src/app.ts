@@ -6,9 +6,9 @@ import morgan from "morgan";
 import createHttpError, { isHttpError } from "http-errors";
 import session from "express-session";
 import env from "./util/validateEnv";
-import MongoStore from "connect-mongo";
 import { requiresAuth } from "./middleware/auth";
 
+export function createApp(store: session.Store) {
 const app = express();
 
 app.use(morgan("dev"));
@@ -23,11 +23,10 @@ app.use(session({
         maxAge: 60 * 60 * 1000,
     },
     rolling: true,
-    store: MongoStore.create({
-        mongoUrl: env.MONGO_CONNECTION_STRING
-    }),
+    store,
 }));
 
+app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 app.use("/api/users", userRoutes);
 app.use("/api/notes", requiresAuth, notesRoutes);
 
@@ -47,4 +46,7 @@ app.use((error: unknown, req: Request, res: Response, next: NextFunction) => {
     res.status(statusCode).json({ error: errorMessage });
 });
 
-export default app;
+return app;
+}
+
+export default createApp;
