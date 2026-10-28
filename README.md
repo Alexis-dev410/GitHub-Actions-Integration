@@ -1,4 +1,4 @@
-# Week 9 Session 2 — MERN CI/CD
+# Week 9 - Thursday session — MERN CI/CD
 
 Implement a single-job GitHub Actions workflow that tests this app, builds its
 Docker images, and publishes them to GHCR. Start from the calculator workflow;
@@ -38,9 +38,4 @@ adding `--volumes` deletes that data. Keep `.env` out of Git.
 | `compose.test.yaml` | Tests, lint, and type checking |
 | `compose.published.yaml` | Pull and run GHCR images |
 
-Continue with [the workflow lab](docs/student-lab.md).
 
-## Attribution
-
-Adapted from [Coding in Flow's MERN course](https://github.com/codinginflow/MERN-course)
-and [video tutorial](https://www.youtube.com/watch?v=FcxjCPeicvU).
