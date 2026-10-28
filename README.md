@@ -28,9 +28,10 @@ docker compose -f compose.test.yaml run --rm backend-test npm run typecheck
 docker compose -f compose.test.yaml down --volumes
 ```
 
-Tests use an isolated, temporary MongoDB. There are no source mounts; rebuild
-images after edits. `docker compose down` stops the app and preserves its data;
-adding `--volumes` deletes that data. Keep `.env` out of Git.
+The test commands use a separate temporary MongoDB automatically; no database
+setup is needed. After editing code or tests, rerun the relevant build command
+so the containers include your changes. `docker compose down` stops the app and
+keeps its saved data; adding `--volumes` deletes that data. Keep `.env` out of Git.
 
 | Configuration | Use |
 | --- | --- |

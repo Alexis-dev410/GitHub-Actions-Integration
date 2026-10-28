@@ -4,6 +4,12 @@ Work individually on your own fork's **main**. Implement
 `.github/workflows/ci-cd.yml` using the calculator's single-job structure and the
 supplied Docker/GHCR code. Start with the README's local checks.
 
+For each supplied workflow block, copy the code into the stated location. Keep
+its variable names and expressions unchanged unless a step explicitly asks you
+to edit them. GitHub fills in your repository, account, and commit automatically.
+Only the local `.env` example at Checkpoint 6 contains placeholders to replace.
+The workflow runs on GitHub after a push; local commands are identified separately.
+
 **Build one checkpoint at a time. Push and inspect its Actions run before adding
 the next checkpoint. Do not assemble the entire workflow first.** Each new run
 repeats all steps added so far. If a checkpoint fails unexpectedly, fix it and
@@ -20,7 +26,8 @@ push again before continuing.
 
 ## Checkpoint 1 — Get a workflow running
 
-Create `.github/workflows/ci-cd.yml` with this scaffold only:
+Create `.github/workflows/ci-cd.yml` and copy this scaffold unchanged. Do not add
+any later checkpoint code yet:
 
 ```yaml
 name: MERN checks and image delivery
@@ -43,9 +50,10 @@ jobs:
       # At Checkpoint 2, add the test and cleanup steps here.
 ```
 
-Keep a descriptive workflow name and the checkout step. The `push` trigger is
-restricted to `main`; `ci` is the single Ubuntu job. Node runs inside the Docker
-images later, so no `setup-node` step is needed.
+No values need replacing in this block. You may change the workflow's display
+name, but keep the trigger, job, and checkout step. GitHub starts an Ubuntu
+computer for the job and checkout downloads your code onto it. Later steps run
+Node inside Docker, so you do not need to add `setup-node`.
 
 **Run 1:** commit with a message such as `ci: add workflow scaffold` and push to
 main. Open **Actions → MERN checks and image delivery → the latest run → ci**.
@@ -58,7 +66,8 @@ spaces inside their step. Keep one workflow, one job, and one `steps` list.
 
 ## Checkpoint 2 — Automate the checks
 
-Add these steps after checkout:
+Copy these steps unchanged after checkout. You do not need to write new tests
+or configure a database:
 
 ```yaml
 - name: Build images for the supplied tests
@@ -77,7 +86,7 @@ Add these steps after checkout:
   run: docker compose -f compose.test.yaml run --rm backend-test npm run typecheck
 ```
 
-Then add cleanup as the **last step**:
+Copy this cleanup step unchanged as the **last step**:
 
 ```yaml
 - name: Clean up the test environment
@@ -85,9 +94,10 @@ Then add cleanup as the **last step**:
   run: docker compose -f compose.test.yaml down --volumes
 ```
 
-Compose supplies an isolated test MongoDB and test settings; CI needs no local
-`.env`. `always()` runs cleanup even if a check fails. Do not use
-`continue-on-error` or otherwise ignore failed checks.
+The supplied Compose file starts a separate test database and provides its
+settings automatically. Do not upload your local `.env` or add database secrets
+to GitHub. The cleanup step removes that test environment, including after a
+failed check. Keep `if: always()` as written and do not add `continue-on-error`.
 
 **Run 2:** commit (`ci: run supplied checks`) and push. Inspect each step:
 
@@ -101,7 +111,7 @@ There should still be no GHCR login or publication steps.
 ## Checkpoint 3 — Build and tag the images
 
 Insert the following naming and build steps **after type checking and before
-cleanup**. Keep all existing steps.
+cleanup**. Copy both blocks unchanged; keep all existing steps.
 
 ```yaml
 - name: Prepare image names
@@ -112,8 +122,11 @@ cleanup**. Keep all existing steps.
     echo "FRONTEND_IMAGE=ghcr.io/${repository}-frontend" >> "$GITHUB_ENV"
 ```
 
-`GITHUB_REPOSITORY` supplies `owner/repo`; `,,` lowercases it. `GITHUB_ENV` makes
-the image names available to later steps.
+This step creates your two GHCR image names automatically from your GitHub
+account and repository name. For example, `Alex/mern-notes` becomes
+`ghcr.io/alex/mern-notes-backend` and `ghcr.io/alex/mern-notes-frontend`.
+It converts the names to lowercase and saves them for the build and publishing
+steps. **Do not type your username into this code or replace any variables.**
 
 ```yaml
 - name: Build backend image
@@ -125,8 +138,11 @@ the image names available to later steps.
     docker build --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" -t "$FRONTEND_IMAGE:latest" -t "$FRONTEND_IMAGE:sha-$GITHUB_SHA" ./frontend
 ```
 
-Each image gets `latest` and `sha-<commit>` tags. The source label links it to your
-repository. These Dockerfiles package the development app; they do not run tests.
+The build commands use the names created above. GitHub also supplies the commit
+identifier, so both images automatically receive a `sha-...` version tag and a
+`latest` tag. The label records which repository produced the image. You do not
+need to enter a commit value or edit the commands. The existing Dockerfiles
+package the app; the earlier workflow steps run its tests.
 
 **Run 3:** commit (`ci: build application images`) and push. Confirm the earlier
 checks still pass and both Docker build steps complete. Nothing is published yet:
@@ -135,7 +151,8 @@ this checkpoint. Continue only after this run is green.
 
 ## Checkpoint 4 — Publish to GHCR
 
-Add `packages: write` to the existing top-level permissions block so it becomes:
+Edit the existing top-level permissions block to match the code below. Add only
+`packages: write`; do not create a second permissions block:
 
 ```yaml
 permissions:
@@ -143,7 +160,7 @@ permissions:
   packages: write
 ```
 
-Insert these steps **after the frontend image build and before cleanup**:
+Copy these steps unchanged **after the frontend image build and before cleanup**:
 
 ```yaml
 - name: Log in to GHCR
@@ -163,9 +180,12 @@ Insert these steps **after the frontend image build and before cleanup**:
     docker push "$FRONTEND_IMAGE:latest"
 ```
 
-GitHub supplies `GITHUB_TOKEN`; `packages: write` allows it to publish packages.
-The condition restricts login/publication to pushes on main. The major action tag
-matches the calculator's style; maintained pipelines should pin reviewed SHAs.
+GitHub automatically supplies the login account and a temporary token for this
+run. **Leave `github.actor` and `secrets.GITHUB_TOKEN` exactly as written**; do not
+replace them with your username or password, and do not create a token secret.
+The permission you added allows the upload. The `if` line allows it only on a
+push to main. The push commands upload both images using their saved names and
+automatically generated tags. No additional values need replacing here.
 
 The final step order is now:
 
@@ -177,9 +197,11 @@ Checkout → build test images → backend tests → frontend tests → lint →
 **Run 4:** commit (`ci: publish images to GHCR`) and push. Confirm all earlier
 checks/builds pass, then inspect the login and push steps. In your profile's
 **Packages**, find both `<repo>-backend` and `<repo>-frontend` with `latest` and
-`sha-<this run's full commit SHA>` tags. Make both packages public for the local
-pull later. Save the run and package links. Resolve any publishing errors before
-continuing.
+`sha-...` tags matching this run's commit. These packages are your stored backend
+and frontend images. In each package's settings, change visibility to public so
+you can download it locally without logging in. This is a manual action you must
+perform for both packages. Save the run and package links. Resolve publishing
+errors before continuing.
 
 ## Checkpoint 5 — Prove a failure blocks delivery
 
@@ -199,12 +221,14 @@ Save this failed run link. Then restore the expectation to `{ status: "ok" }`.
 
 **Run 6:** commit (`test: restore passing expectation`) and push. Confirm all
 checks pass and both images are published with the new successful commit tag.
-Use **Run 6's SHA** for the next checkpoint.
+For the next checkpoint, copy the full `sha-...` tag from either package version
+published by this successful run. Both packages should have that same tag.
 
 ## Checkpoint 6 — Run the delivered images
 
-Stop the local source-built stack with `docker compose down`. Update root `.env`,
-preserving your session secret:
+On your laptop, stop the source-built stack with `docker compose down`. Edit
+root `.env`, preserving your session secret. **Here you must replace the
+placeholders** with your own published image names and version tag:
 
 ```dotenv
 BACKEND_IMAGE=ghcr.io/YOUR-LOWERCASE-OWNER/YOUR-LOWERCASE-REPO-backend
@@ -212,7 +236,12 @@ FRONTEND_IMAGE=ghcr.io/YOUR-LOWERCASE-OWNER/YOUR-LOWERCASE-REPO-frontend
 IMAGE_TAG=sha-FULL_COMMIT_SHA_FROM_RUN_6
 ```
 
-Replace the placeholders; image names exclude tags. Run:
+Copy each full image name from its GHCR package page into the corresponding
+image variable, without a colon or tag. Set `IMAGE_TAG` to the complete
+`sha-...` tag copied after Run 6. Do not leave any uppercase placeholder text
+from the example. These are local settings; do not edit your workflow for this.
+
+Run these commands locally:
 
 ```sh
 docker compose -f compose.published.yaml pull
@@ -221,9 +250,10 @@ docker compose -f compose.published.yaml ps
 ```
 
 Verify authentication and note CRUD at http://localhost:3000. Restart and check
-persistence. This stack has its own database volume. Use downloaded images
-without rebuilding locally. This checkpoint runs locally and needs no new
-workflow run. Keep `.env` out of Git.
+persistence. This configuration stores app data separately, so accounts from
+your earlier source-built stack will not appear; create a test account here.
+Use the downloaded images without rebuilding locally. You do not need to commit
+or push for this checkpoint. Keep `.env` out of Git.
 
 ```sh
 docker compose -f compose.published.yaml down
