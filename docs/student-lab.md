@@ -10,11 +10,16 @@ As soon as your fork is ready, open **Settings → Collaborators → Add people*
 and invite **`chakirouAlabani`**. Send your instructor the repository link so the
 invitation can be accepted before grading.
 
-Your instructor must be able to read the code, commits, workflow file, all six
-Actions runs and their step logs, and both GHCR packages. If your repository
-offers a **Read** role, use it. Personal-account repositories give collaborators
-write access rather than a read-only role; the standard collaborator invitation
-is sufficient there. Administrator access is not required.
+Give your instructor **Write access** as a repository collaborator. For a
+personal-account repository, the standard collaborator invitation grants this.
+If a role selector is available, choose **Write**. Administrator access is not
+required.
+
+Your instructor must be able to inspect the code, commits, workflow file, all
+six Actions runs and their step logs, and both public GHCR packages and their
+version tags. Repository access covers the code and Actions evidence; keeping
+the GHCR packages public also lets the instructor inspect and pull the images.
+The final local demonstration provides the evidence of the app actually running.
 
 Keep both GHCR packages public when created at Checkpoint 4. Keep repository
 access, run history/logs, and image versions available until grading is complete.
@@ -274,8 +279,8 @@ your earlier source-built stack will not appear; create a test account here.
 Use the downloaded images without rebuilding locally. You do not need to commit
 or push for this checkpoint. Keep `.env` out of Git.
 
-**Show your instructor the app running locally at this checkpoint, before stopping
-it.** Demonstrate authentication, note creation/editing/deletion, and persistence
+**The final lab step is a live demonstration to your instructor of the published
+images running on your own laptop. Show it before stopping the stack.** Demonstrate authentication, note creation/editing/deletion, and persistence
 after restarting. Show the running containers and their image tags using:
 
 ```sh
@@ -306,7 +311,8 @@ docker compose -f compose.published.yaml down
 
 - Repository/workflow link and run links labelled Run 1 through Run 6 (plus any repair runs).
 - Links to both GHCR packages and the shared commit tag from Run 6.
-- Instructor collaborator access arranged before Run 1 and retained through grading.
+- Instructor collaborator access with **Write** permission, arranged before Run 1
+  and retained through grading.
 - Live local demonstration at Checkpoint 6; no recording required.
 
 Explain the main-only condition, `GITHUB_TOKEN`, image tags, and why Run 5 blocked
