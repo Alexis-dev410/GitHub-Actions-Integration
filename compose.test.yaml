@@ -10,15 +10,13 @@ services:
       timeout: 5s
       retries: 30
   backend-test:
-    build:
-      context: ./backend
-      target: test
+    build: ./backend
+    command: npm test
     environment:
       TEST_MONGO_URI: mongodb://mongo-test:27017/mern_notes_test
     depends_on:
       mongo-test:
         condition: service_healthy
   frontend-test:
-    build:
-      context: ./frontend
-      target: test
+    build: ./frontend
+    command: npm run test:ci

@@ -1,124 +1,220 @@
-# Student lab: automate checks, builds, and delivery to GHCR
+# Student lab: from the calculator workflow to MERN image delivery
 
-## Your goal
+## Goal and scope
 
-Starting from the working Dockerized app, implement `.github/workflows/ci-cd.yml`.
-On a pull request, verify the code and build the runtime images without publishing.
-On a successful push to `main`, publish both images to GitHub Container Registry
-(GHCR). Then run the published application locally without rebuilding it.
+Work individually in your own fork. Implement `.github/workflows/ci-cd.yml` so a
+push runs the supplied tests, builds two development images, and publishes them
+to GitHub Container Registry (GHCR) only on `main`. Then pull and run those images
+on your laptop. We are not deploying to an online server.
 
-The Dockerfiles and tests are supplied. The workflow is your implementation.
-Complete the README's local startup and test checks first.
+The app still uses CRA `npm start`, backend Nodemon, and MongoDB. Dockerfiles,
+Compose, tests, and the unfamiliar Docker/GHCR code below are supplied. Your task
+is to assemble and explain a basic workflow, run it, diagnose failures, and verify
+its output. There is no completed workflow in `.github/workflows/`.
 
-## 1. Understand what moves through the pipeline
+## 1. Verify the starter
 
-Source code goes to a GitHub repository. A GitHub Actions runner checks that code
-and builds images. GHCR stores the images. Docker on your laptop pulls the images
-and creates containers. A registry does not host a running application.
-
-Each package uses a lockfile and `npm ci`. The backend tests verify authentication,
-note CRUD, and isolation between users. Frontend tests verify rendering and user
-interaction. A failed test must prevent image publication.
-
-## 2. Create the workflow and checks job
-
-Create the workflow directory and YAML file. Configure `push` to `main` and
-`pull_request` targeting `main`; optionally include `workflow_dispatch` for manual
-runs. Use Ubuntu runners. Begin with `contents: read` permissions.
-
-In a checks job, check out the code, then automate the following commands using
-separate steps so that a failure stops the job:
+Follow the README to start the app and run its tests locally. Check signup/login
+and note creation. Create a branch for your workflow:
 
 ```sh
-docker compose -f compose.test.yaml build
-docker compose -f compose.test.yaml run --rm backend-test
-docker compose -f compose.test.yaml run --rm frontend-test
-docker compose -f compose.test.yaml run --rm backend-test npm run lint
-docker compose -f compose.test.yaml run --rm backend-test npm run typecheck
+git switch -c ci/github-actions
 ```
 
-Add a cleanup step using `if: always()` that runs:
+## 2. Reuse what you know from the calculator
 
-```sh
-docker compose -f compose.test.yaml down --volumes
+The calculator workflow has a name, a push trigger, read permission, one Ubuntu
+job, a checkout step, test/build steps, and an artifact upload step.
+
+| Calculator | MERN |
+| --- | --- |
+| `name`, `on: [push]`, `jobs`, `runs-on`, `steps` | Same basic workflow structure |
+| `actions/checkout@v7` | Same checkout step |
+| `actions/setup-node` | Not needed here: Node is already inside the Docker images |
+| `npm test` | Supplied Compose steps run frontend/backend tests |
+| `npm run build` | Supplied Docker commands package both development apps |
+| `actions/upload-artifact` | Supplied GHCR login/push steps deliver container images |
+
+Create your workflow file. Write a descriptive name, use `on: [push]`, create one
+job on `ubuntu-latest`, and write the checkout step as in the calculator example.
+Use the permission block supplied below instead of the calculator's read-only
+block. Add the supplied steps under your job's `steps`, at the same indentation
+level as checkout. Keep them in the order shown. Write your own descriptive step
+names if you prefer.
+
+You are not expected to invent the Bash expressions, registry authentication,
+container networking, or Docker commands. Copy the supplied blocks and explain
+their role. No matrix, multiple jobs, Buildx setup, or deployment job is required.
+
+## 3. Supplied permission block
+
+Place this at the workflow's top level, alongside `name`, `on`, and `jobs`:
+
+```yaml
+permissions:
+  contents: read
+  packages: write
 ```
 
-The Ubuntu runner already supplies Docker. Test MongoDB runs on the Compose
-network at `mongo-test:27017`. No database password or real application secret is
-needed for the disposable test environment. This test file does not use root `.env`.
-Do not add `continue-on-error` or ignore failing exit codes.
+`contents: read` lets checkout read code. `packages: write` lets the workflow's
+automatically supplied `GITHUB_TOKEN` publish images to GHCR. Do not create a
+personal token or put your GitHub password in the file.
 
-Push this first version. Open the Actions tab and inspect the logs. Deliberately
-change a tested expectation so it fails, observe the red run, then restore it.
+## 4. Supplied test and check steps
 
-## 3. Build the runtime images
+Place these after your checkout step:
 
-Add an image job that depends on the checks job using `needs`. Jobs run on separate
-runners: check out the repository again in this job. Set up Docker Buildx.
+```yaml
+- name: Build images for the supplied tests
+  run: docker compose -f compose.test.yaml build
 
-Use `docker/build-push-action` for each app:
+- name: Run backend API tests
+  run: docker compose -f compose.test.yaml run --rm backend-test
 
-| App | Build context | Dockerfile | Target |
-| --- | --- | --- | --- |
-| Backend | `./backend` | `./backend/Dockerfile` | `runtime` |
-| Frontend | `./frontend` | `./frontend/Dockerfile` | `runtime` |
+- name: Run frontend tests
+  run: docker compose -f compose.test.yaml run --rm frontend-test
 
-The default final stage is also `runtime`. A repository-root context will not
-match the supplied Dockerfiles' `COPY package.json package-lock.json ./` paths.
-Do not try to reuse another job's local images; build in the image job.
+- name: Check backend code style
+  run: docker compose -f compose.test.yaml run --rm backend-test npm run lint
 
-On pull requests, run these builds with publishing disabled. This checks the
-production compilation and Docker packaging even though the source tests passed.
+- name: Check backend TypeScript
+  run: docker compose -f compose.test.yaml run --rm backend-test npm run typecheck
+```
 
-## 4. Authenticate and publish on main
+The runner has Docker. `compose.test.yaml` starts an isolated MongoDB and waits
+until it is healthy before backend tests run. Compose replaces the app's normal
+start command with its test command. Test credentials are supplied already; CI
+does not need your local `.env` file or real database credentials.
 
-Choose two image names in your own GitHub namespace:
+GitHub stops normal subsequent steps when one fails, just as in the calculator
+exercise. Do not add `continue-on-error` or hide errors.
+
+## 5. Supplied image naming step
+
+Place this after the checks:
+
+```yaml
+- name: Prepare image names
+  shell: bash
+  run: |
+    repository="${GITHUB_REPOSITORY,,}"
+    echo "BACKEND_IMAGE=ghcr.io/${repository}-backend" >> "$GITHUB_ENV"
+    echo "FRONTEND_IMAGE=ghcr.io/${repository}-frontend" >> "$GITHUB_ENV"
+```
+
+GitHub supplies `GITHUB_REPOSITORY` as `owner/repository`. Bash `,,` converts it to
+lowercase because image repository names must be lowercase. `$GITHUB_ENV` makes
+these values available to later steps. Use your own fork's namespace, not the
+instructor's; this snippet does that automatically.
+
+For a repository named `alex/mern-notes`, the result is:
 
 ```text
-ghcr.io/<lowercase-owner>/<lowercase-repository>-backend
-ghcr.io/<lowercase-owner>/<lowercase-repository>-frontend
+ghcr.io/alex/mern-notes-backend
+ghcr.io/alex/mern-notes-frontend
 ```
 
-Normalize both owner and repository to lowercase; GitHub account names may contain
-uppercase letters. Use the actual current repository, not the instructor's.
+## 6. Supplied image build steps
 
-Grant the image job `contents: read` and `packages: write`. Use
-`docker/login-action` with registry `ghcr.io`, username from `github.actor`, and
-password from `secrets.GITHUB_TOKEN`. This token is supplied automatically: do not
-create a secret containing your GitHub password or put a token in the YAML.
+```yaml
+- name: Build backend image
+  run: |
+    docker build --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" -t "$BACKEND_IMAGE:latest" -t "$BACKEND_IMAGE:sha-$GITHUB_SHA" ./backend
 
-Make login and publishing conditional on **both** a `push` event and
-`refs/heads/main`. Builds on pull requests and optional manual runs should not
-publish. Use the same condition for the build action's `push` input. The job's
-dependency must prevent it from running after failed checks.
+- name: Build frontend image
+  run: |
+    docker build --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" -t "$FRONTEND_IMAGE:latest" -t "$FRONTEND_IMAGE:sha-$GITHUB_SHA" ./frontend
+```
 
-For each image publish two tags: `latest` and `sha-<full github.sha>`. The commit
-tag traces a version to its source; `latest` moves with successful main builds.
-Use the same commit tag for both images. Optionally add a concurrency group for
-main publishing so older runs cannot overwrite a newer `latest` tag.
+Each command uses its app's directory as the build context. `-t` names the image.
+Both tags refer to the same built image: `latest` is convenient, while
+`sha-<full commit SHA>` identifies which source commit produced it. The source
+label associates the package with this repository. A tag can move; a digest is
+an exact content identifier.
 
-Add the OCI source label `org.opencontainers.image.source` pointing at your
-repository URL. Pin third-party actions to reviewed commit SHAs, following the
-official examples. Docker metadata action is available if you want to automate
-tag and label generation; it is optional for this lesson.
+These builds install dependencies and copy the development application. They do
+not create a production release or run tests. The checks above run first.
 
-Push or merge a passing change to main. Find both packages on your GitHub profile's
-Packages tab. New packages start private; for this public classroom app, change
-each package's visibility to public so the next step needs no registry login.
-Do not include secrets or personal data in these images.
+## 7. Supplied GHCR login and push steps
 
-## 5. Pull and run exactly what the workflow published
+```yaml
+- name: Log in to GHCR
+  if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  uses: docker/login-action@v4
+  with:
+    registry: ghcr.io
+    username: ${{ github.actor }}
+    password: ${{ secrets.GITHUB_TOKEN }}
 
-Stop the source-built stack first to free port 3000:
+- name: Publish both images
+  if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  run: |
+    docker push "$BACKEND_IMAGE:sha-$GITHUB_SHA"
+    docker push "$FRONTEND_IMAGE:sha-$GITHUB_SHA"
+    docker push "$BACKEND_IMAGE:latest"
+    docker push "$FRONTEND_IMAGE:latest"
+```
+
+`uses` runs an existing action; `run` executes commands. The expression after
+`if` allows login/publishing only on a push to `main`. Feature-branch pushes still
+test and build. Earlier failures skip publication. `GITHUB_TOKEN` is automatic;
+`github.actor` is the account that triggered the run. `docker push` uploads the
+images to GHCR. GHCR stores images; it does not start the app.
+
+The major action tag is used for readability, matching the calculator example.
+For maintained release pipelines, pin actions to reviewed commit SHAs.
+
+## 8. Supplied cleanup step
+
+Place this last, after the publish step:
+
+```yaml
+- name: Clean up the test environment
+  if: always()
+  run: docker compose -f compose.test.yaml down --volumes
+```
+
+`always()` runs cleanup even after a failed test. It removes only the isolated
+test stack. It does not make a failed workflow pass.
+
+## 9. Run, inspect, and merge
+
+1. Commit and push your branch. Inspect the Actions run. Tests, checks, and image
+   builds should pass. Login/publish should be skipped because this is not main.
+2. Change an expected value in a supplied test to make it fail. Commit and push.
+   Confirm the run fails and later build/publish steps are skipped. Restore the
+   expectation, commit, and push; confirm the run passes again.
+3. Open a PR into **your own fork's main**, selecting your fork as the base
+   repository. Review your changes yourself; this is an individual lab.
+4. Merge the PR. The push to main now runs checks, builds, and publishes images.
+5. Open your GitHub profile's Packages tab. Find both packages and change each
+   package's visibility to public so your laptop can pull without logging in.
+
+With `on: [push]`, pushing branch commits triggers checks; you do not need an
+additional pull-request trigger for this basic lab. Opening a PR alone does not
+create a separate run. Branch push checks are associated with that commit.
+
+## 10. Pull and run the workflow's images locally
+
+Stop the source-built app first to free port 3000:
 
 ```sh
 docker compose down
 ```
 
-In root `.env`, set `FRONTEND_IMAGE` and `BACKEND_IMAGE` to your image names without
-tags. Set `IMAGE_TAG=sha-<full commit SHA from the passing run>` and retain your
-local session secret. Both image names must be lowercase. The Compose file adds
-the tag for you. You may use `latest` initially, but use the commit tag as evidence.
+Update your root `.env`, keeping your own session secret. For example:
+
+```dotenv
+SESSION_SECRET=your-own-long-random-value
+BACKEND_IMAGE=ghcr.io/alex/mern-notes-backend
+FRONTEND_IMAGE=ghcr.io/alex/mern-notes-frontend
+IMAGE_TAG=sha-REPLACE_WITH_FULL_COMMIT_SHA_FROM_MAIN_RUN
+```
+
+Use your own lowercase names. Do not include `:tag` in the image variables; Compose
+adds `IMAGE_TAG` to each. Use the SHA of the successful **main run** (a merge can
+produce a new commit SHA), not a previous feature-branch SHA. `latest` is also
+available, but use the commit tag as submission evidence.
 
 ```sh
 docker compose -f compose.published.yaml pull
@@ -126,54 +222,50 @@ docker compose -f compose.published.yaml up -d --wait
 docker compose -f compose.published.yaml ps
 ```
 
-Open http://localhost:3000. Sign up, create and edit a note, then log out and log
-back in. The published stack has its own database volume; source-stack accounts
-will not automatically appear here. Restart the stack and verify your data stays.
-There are no build directives or source bind mounts in this file. Only the Compose
-file, runtime `.env`, and Docker are needed on another computer.
+Open http://localhost:3000. Sign up, create/edit/delete a note, log out, and log
+back in. Restart the stack and verify data persists. This stack has its own
+MongoDB volume, separate from the source-built stack. It runs the same development
+servers, downloaded from the registry. It contains no local build directives or
+source mounts. Do not run `docker build` on your laptop to complete this step.
 
 ```sh
 docker compose -f compose.published.yaml logs
 docker compose -f compose.published.yaml down
 ```
 
-Do not publish images from your laptop for this exercise: demonstrate that your
-workflow produced them. Do not push the upstream MongoDB image into your namespace.
-
 ## Troubleshooting
 
 | Symptom | Check |
 | --- | --- |
-| Cannot connect to Docker | Docker Desktop running; Linux containers selected |
-| Missing session secret | Root `.env` created and populated for app startup |
-| Tests cannot connect | Use `compose.test.yaml`; inspect `mongo-test` health/logs |
-| GHCR permission denied | Correct namespace, job permissions, package Actions access |
-| Invalid image reference | Lowercase names; no duplicate `:tag` in image variable |
-| Pull denied | Package exists and is public, or authenticate for private access |
-| Port 3000 occupied | Stop the other stack first |
-| Frontend loads but login fails | Backend/Mongo health; Nginx `/api` proxy logs |
+| Cannot connect to Docker | Docker Desktop running with Linux containers |
+| Missing session secret | Root `.env` exists for local app startup |
+| Backend tests cannot connect | Test MongoDB health/logs in `compose.test.yaml` |
+| GHCR permission denied | `packages: write`, correct namespace, package Actions access |
+| Invalid image reference | Lowercase image names, no duplicate `:tag` |
+| Pull denied | Package exists and is public, or log in for private access |
+| Port 3000 occupied | Stop the other stack |
+| App not immediately ready | CRA compilation takes time; inspect frontend logs |
+| Login fails | CRA container proxy and backend/Mongo health/logs |
 | Tests use old code | Rebuild test images after edits |
-| Main workflow never publishes | Event/branch condition, `needs`, and prior failures |
+| Feature branch does not publish | Expected; publishing runs only on main |
+| Main fails to publish | Earlier failures, condition, permissions, or package access |
 
-## Submit
+## Submit and explain
 
-- Repository link and your workflow file.
-- A failed test run followed by the corrected passing run.
-- A successful main run with both published packages linked.
-- The commit tag used for both images and evidence that the published stack is
-  healthy and note operations work. Never submit `.env` or secret values.
+Submit your repository/workflow link, a failed-then-fixed test run, a successful
+main publishing run, links to both GHCR packages, and the shared commit tag.
+Include evidence that the downloaded app works. Never submit `.env` or secrets.
 
-Explain: Why run tests before publishing? How does a tag differ from a digest?
-Why does GHCR publication not make an app publicly accessible? What would a server
-need to run the same images?
+Explain what each supplied block does. Why do failed tests prevent publication?
+What replaces the calculator's artifact upload? Why does publishing not make a
+website available online? What is the difference between a tag and a digest?
 
-This lab implements CI and delivery of container artifacts, verified locally.
-Automated deployment to an online server is a later step. These base image tags
-can move; release processes can pin digests for exact reproducibility.
+Production packaging, Nginx, HTTPS, online hosting, and automatic server deployment
+are outside this lab. These development images retain the original dependencies;
+a production/security review is a separate task.
 
-## Official references
+## References
 
+- [Publishing Docker images with GitHub Actions](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images)
+- [Working with GHCR](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
 - [GitHub workflow syntax](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax)
-- [Publishing Docker images with Actions](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images)
-- [GHCR authentication and visibility](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
-- [Docker multi-stage builds](https://docs.docker.com/build/building/multi-stage/)

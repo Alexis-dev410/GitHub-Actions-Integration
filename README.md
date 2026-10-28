@@ -1,34 +1,43 @@
 # Week 9 Session 2: MERN CI/CD Student Starter
 
-A ready-to-run notes app: React TypeScript (CRA), Express TypeScript, and MongoDB.
-Dockerfiles, test cases, and Compose files are supplied. **You implement the GitHub
-Actions workflow.** No completed workflow is included in this starter.
+A notes app using React TypeScript (Create React App), Express TypeScript, and
+MongoDB. The Dockerfiles preserve the familiar development setup: the frontend
+runs `npm start` (CRA), and the backend runs `npm start` (Nodemon).
+
+This lesson covers automated tests, Docker image building, and publishing to GHCR.
+It does not cover production hosting. There is no Nginx or production build stage.
+**You implement the workflow.** The lab supplies code for the unfamiliar
+Docker/GHCR parts, using the same single-job structure as the calculator exercise.
 
 ## Start here
 
 Install Git and Docker Desktop with Linux containers and Compose v2. Start Docker
 Desktop and check `docker version` and `docker compose version`. Local Node is
-optional; the container commands below use Node 22.
+optional; Node 22 and dependencies are installed inside the images.
 
-Create your own repository from this starter (fork it, or use GitHub's template
-feature if your instructor enables it). Clone your copy and run commands from its
-root. Use a public repository for the classroom exercise.
+Each student works alone: fork this repository, clone your fork, and run commands
+from its root. Use a public repository for the classroom exercise.
 
 Copy `.env.example` to `.env` (`Copy-Item .env.example .env` in PowerShell), then
-replace `SESSION_SECRET` with a long random value. For example, generate one with:
+replace `SESSION_SECRET` with a long random value. You can generate one with:
 
 ```sh
-docker run --rm node:22-bookworm-slim node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+docker run --rm node:22-bookworm node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
 ```sh
 docker compose up --build -d --wait
 ```
 
-Open http://localhost:3000. Sign up, create a note, edit it, log out and log back
-in. API requests go through Nginx to `backend:5000`; cookies stay on the browser's
-frontend origin. MongoDB is internal to the Docker network. Only the frontend
-port is published, bound to localhost.
+`--build` builds the images; `-d` runs the app in the background; `--wait` waits for
+health checks before returning. Open http://localhost:3000. Sign up, create and
+edit a note, then log out and log back in.
+
+The CRA development server forwards `/api` requests to `backend:5000` inside
+Docker. Cookies stay on the frontend origin. MongoDB and the backend are internal
+to the Docker network. Only frontend port 3000 is published, bound to localhost.
+These are development images for a local lab, including when downloaded from GHCR.
+Publishing an image does not deploy a website.
 
 ```sh
 docker compose ps
@@ -36,14 +45,14 @@ docker compose logs backend
 docker compose down
 ```
 
-Database data survives `down` in a named volume. `down --volumes` deletes it.
-These files are for a local classroom demonstration. Public hosting additionally
-requires HTTPS, appropriate cookie/proxy settings, database access controls and
-backup planning. Never commit `.env` or bake secrets into an image.
+MongoDB data persists in a named volume after `down`. `down --volumes` deletes it.
+There are no source bind mounts: rebuild after editing source, tests, or package
+files. Never commit `.env` or put real secrets inside images.
 
 ## Run the supplied tests
 
-These commands build dedicated test targets; runtime images contain no test tools.
+The same simple Dockerfiles are used for testing. Compose overrides `npm start`
+with the test command. Test MongoDB is separate and temporary.
 
 ```sh
 docker compose -f compose.test.yaml build
@@ -54,35 +63,33 @@ docker compose -f compose.test.yaml run --rm backend-test npm run typecheck
 docker compose -f compose.test.yaml down --volumes
 ```
 
-Run commands separately and check each exit code. Rebuild after editing tests or
-source: there are no source bind mounts. Backend tests use an isolated, temporary
-MongoDB instance and a database name ending in `_test`. They delete test records.
-Never point them at a database containing data you want to keep. Frontend tests
-need no database.
+Run these separately and check each exit code. Backend tests delete test records;
+they require a database name ending in `_test`. Never point them at application
+data. Frontend tests do not need MongoDB.
 
-For native Node 22 use, run `npm ci` separately in each package. Backend scripts:
-`npm test`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm start`.
-Tests require a reachable MongoDB database; set `TEST_MONGO_URI` to its test URI.
-`npm run dev` uses Nodemon and reads `backend/.env` (see its example). Frontend
-scripts: `npm run test:ci`, `npm run build`, `npm start`. Native frontend development
-proxies to localhost:5000; the production container instead uses Nginx.
+For native Node 22 use, run `npm ci` in each package. The backend supports
+`npm start`, `npm test`, `npm run lint`, and `npm run typecheck`. Native app startup
+reads `backend/.env` (see its example) and requires your own running MongoDB.
+Tests use `TEST_MONGO_URI` or a local `mern_notes_test` database. The frontend
+supports `npm start`, `npm run test:ci`, and its original `npm run build` command.
+Its native development proxy remains `localhost:5000`; only the image changes
+that proxy to the Compose service hostname `backend`.
 
-## Files you will use
+## Supplied files
 
 | File | Purpose |
 | --- | --- |
-| `backend/Dockerfile` | Test target, TypeScript build, non-root Node runtime |
-| `frontend/Dockerfile` | Test target, CRA build, Nginx runtime |
-| `frontend/nginx.conf` | SPA routing and same-origin `/api` forwarding |
-| `compose.yaml` | Build and run the supplied app locally |
-| `compose.test.yaml` | Run the provided tests against a separate database |
-| `compose.published.yaml` | Pull and run your GHCR images, with no local builds |
-| `docs/student-lab.md` | Workflow assignment and explanations |
+| `backend/Dockerfile` | Install dependencies, copy source, run Nodemon |
+| `frontend/Dockerfile` | Install dependencies, set container proxy, run CRA |
+| `compose.yaml` | Build and run the app locally with MongoDB |
+| `compose.test.yaml` | Run tests against an isolated test database |
+| `compose.published.yaml` | Run registry images without building locally |
+| `.env.example` | Local secret and image-name settings to copy into `.env` |
+| `docs/student-lab.md` | Basic workflow assignment plus supplied Docker/GHCR code |
 
-Both runtime images are built with `docker build ./backend` and
-`docker build ./frontend` respectively. Neither build requires application secrets
-or a running database. Building a runtime image does not execute the tests;
-your workflow must run them and block publication on failure.
+A Docker image build packages the development app; it does not run tests or
+compile a production release. Your workflow explicitly runs tests, lint, and
+backend type checking before building and publishing images.
 
 Continue with [the student lab](docs/student-lab.md).
 
@@ -90,4 +97,4 @@ Continue with [the student lab](docs/student-lab.md).
 
 Adapted from [Coding in Flow's MERN course](https://github.com/codinginflow/MERN-course)
 and [video tutorial](https://www.youtube.com/watch?v=FcxjCPeicvU).
-The original application and its dependency stack are retained for this lesson.
+The original application's dependency stack is retained for this classroom lesson.
