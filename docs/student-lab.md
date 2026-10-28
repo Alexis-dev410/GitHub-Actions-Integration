@@ -7,7 +7,7 @@ single-job structure to run checks, build both images, and publish to GHCR on
 ## 1. Implement the workflow
 
 Complete the README's local checks. Work directly on **your own fork's `main`**
-for this lab; no feature branch or PR is required to complete it.
+for this lab.
 
 Create `.github/workflows/ci-cd.yml` with this starting structure:
 
@@ -17,9 +17,6 @@ name: MERN checks and image delivery
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
@@ -35,38 +32,21 @@ jobs:
       # Add the supplied steps below here, in order.
 ```
 
-This extends the calculator's push-only trigger. The workflow name appears in
+This runs on pushes to `main`. The workflow name appears in
 Actions; `ci` is the job identifier. Checkout makes the repository files available
 on the Ubuntu runner. Add each supplied step below at the same indentation as
 `- name: Get the project files` (six spaces). `run` and `uses` belong two spaces
 inside their step. Do not add another `jobs`, `steps`, or `permissions` block.
 
-### When the workflow runs
-
-| Event | Checks and image builds | GHCR publication |
-| --- | --- | --- |
-| Push a commit to your `main` | Run | Run if all prior checks/builds pass |
-| Open a PR targeting your `main` | Run | Skipped |
-| Push more commits to that open PR's source branch (`synchronize`) | Run | Skipped |
-| Reopen a PR targeting your `main` | Run | Skipped |
-| Push to another branch without an open PR targeting `main` | Not triggered | Not triggered |
-| Merge a PR into `main` | The resulting push runs the workflow | Run if successful |
-
-For `pull_request`, `branches: [main]` filters the **target** branch, not the source
-branch. PR checks validate the proposed merge before acceptance; checkout normally
-uses GitHub's temporary merge commit. The PR's source can be a branch or fork.
-The PR must target **your repository**, not the instructor's repository.
-
-You will use the push-to-main path in this individual lab. Keep the PR trigger in
-the workflow so future proposed changes can be checked before merging. A PR run
-must never publish images; the main-only conditions supplied below enforce that.
-Use `pull_request`, not `pull_request_target`, for these code checks.
+Workflows can also listen to multiple events, for example
+`on: [push, pull_request]`. That runs on pushes and pull-request activity.
+For this lab, keep the scaffold's push-to-main trigger.
 
 Node runs inside the images, so omit `setup-node`. GHCR publishing replaces the
 calculator's artifact upload. The completed workflow is yours to assemble.
 
 The scaffold's `contents: read` permits checkout; `packages: write` allows the
-automatic `GITHUB_TOKEN` to publish packages. 
+automatic `GITHUB_TOKEN` to publish packages.
 
 ### Tests and checks — after checkout
 
@@ -141,9 +121,8 @@ the preceding steps.
     docker push "$FRONTEND_IMAGE:latest"
 ```
 
-The condition requires both a `push` event and the `main` branch. PR runs test
-and build but skip login and publication. The token is supplied by GitHub.
-Major action tags match the calculator
+The condition restricts publication to pushes on `main`. The token is supplied
+by GitHub. Major action tags match the calculator
 example's style; maintained release pipelines should pin reviewed commit SHAs.
 
 ### Cleanup — last step
@@ -168,12 +147,6 @@ example's style; maintained release pipelines should pin reviewed commit SHAs.
    and images with this successful run's commit tag are published.
 4. Find both packages and make them public for unauthenticated pulls below.
 
-Optional PR verification (not required for submission): after the workflow exists
-on main, open a PR from a temporary branch into your fork's main. Confirm checks
-and builds run but login/publication are skipped. Push another commit to the PR
-branch to observe `synchronize`. Closing without merging does not publish;
-merging produces a main-branch push and a new publishing run.
-
 ## 3. Run the published images
 
 Stop the local stack with `docker compose down`. Update root `.env`, preserving
@@ -186,7 +159,7 @@ IMAGE_TAG=sha-FULL_COMMIT_SHA_FROM_SUCCESSFUL_MAIN_RUN
 ```
 
 Replace the placeholders. Image names exclude tags; use the successful **main
-run's SHA**, which may differ from the branch SHA after merging.
+run's SHA**.
 
 ```sh
 docker compose -f compose.published.yaml pull
@@ -225,4 +198,4 @@ blocks publication on failure. Distinguish image delivery from deployment.
 
 - [Publishing Docker images](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images)
 - [Working with GHCR](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
-- [Workflow events and pull requests](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request)
+- [Workflow events](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request)
