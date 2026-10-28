@@ -7,24 +7,10 @@ supplied Docker/GHCR code. Start with the README's local checks.
 ## Before Run 1 — Give your instructor access
 
 As soon as your fork is ready, open **Settings → Collaborators → Add people**
-and invite **`chakirouAlabani`**. Send your instructor the repository link so the
+and invite **`chakirouAlabani`**. Send me the repository link on teams so the
 invitation can be accepted before grading.
 
-Give your instructor **Write access** as a repository collaborator. For a
-personal-account repository, the standard collaborator invitation grants this.
-If a role selector is available, choose **Write**. Administrator access is not
-required.
-
-Your instructor must be able to inspect the code, commits, workflow file, all
-six Actions runs and their step logs, and both public GHCR packages and their
-version tags. Repository access covers the code and Actions evidence; keeping
-the GHCR packages public also lets the instructor inspect and pull the images.
-The final local demonstration provides the evidence of the app actually running.
-
-Keep both GHCR packages public when created at Checkpoint 4. Keep repository
-access, run history/logs, and image versions available until grading is complete.
-The workflow's `permissions` block controls its automatic token, not instructor
-access; no workflow changes are needed to invite your instructor.
+Give me **Write access** as a repository collaborator. 
 
 ## How to work through the checkpoints
 
@@ -309,15 +295,9 @@ docker compose -f compose.published.yaml down
 
 ## Submit
 
-- Repository/workflow link and run links labelled Run 1 through Run 6 (plus any repair runs).
-- Links to both GHCR packages and the shared commit tag from Run 6.
-- Instructor collaborator access with **Write** permission, arranged before Run 1
-  and retained through grading.
-- Live local demonstration at Checkpoint 6; no recording required.
+- Repository/workflow link.
+- Live local demonstration at Checkpoint 6 (Call me when you are done).
 
-Explain the main-only condition, `GITHUB_TOKEN`, image tags, and why Run 5 blocked
-publication. Distinguish image delivery from deployment; online deployment is not
-part of this lab.
 
 ## Other trigger events
 
