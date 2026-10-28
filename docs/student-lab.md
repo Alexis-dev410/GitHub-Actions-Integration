@@ -4,6 +4,25 @@ Work individually on your own fork's **main**. Implement
 `.github/workflows/ci-cd.yml` using the calculator's single-job structure and the
 supplied Docker/GHCR code. Start with the README's local checks.
 
+## Before Run 1 — Give your instructor access
+
+As soon as your fork is ready, open **Settings → Collaborators → Add people**
+and invite **`chakirouAlabani`**. Send your instructor the repository link so the
+invitation can be accepted before grading.
+
+Your instructor must be able to read the code, commits, workflow file, all six
+Actions runs and their step logs, and both GHCR packages. If your repository
+offers a **Read** role, use it. Personal-account repositories give collaborators
+write access rather than a read-only role; the standard collaborator invitation
+is sufficient there. Administrator access is not required.
+
+Keep both GHCR packages public when created at Checkpoint 4. Keep repository
+access, run history/logs, and image versions available until grading is complete.
+The workflow's `permissions` block controls its automatic token, not instructor
+access; no workflow changes are needed to invite your instructor.
+
+## How to work through the checkpoints
+
 For each supplied workflow block, copy the code into the stated location. Keep
 its variable names and expressions unchanged unless a step explicitly asks you
 to edit them. GitHub fills in your repository, account, and commit automatically.
@@ -255,6 +274,18 @@ your earlier source-built stack will not appear; create a test account here.
 Use the downloaded images without rebuilding locally. You do not need to commit
 or push for this checkpoint. Keep `.env` out of Git.
 
+**Show your instructor the app running locally at this checkpoint, before stopping
+it.** Demonstrate authentication, note creation/editing/deletion, and persistence
+after restarting. Show the running containers and their image tags using:
+
+```sh
+docker compose -f compose.published.yaml ps
+docker compose -f compose.published.yaml images
+```
+
+Your instructor will compare the images with Run 6 and the GHCR packages. No
+recording is required; this is a live demonstration. Then stop the stack:
+
 ```sh
 docker compose -f compose.published.yaml down
 ```
@@ -275,7 +306,8 @@ docker compose -f compose.published.yaml down
 
 - Repository/workflow link and run links labelled Run 1 through Run 6 (plus any repair runs).
 - Links to both GHCR packages and the shared commit tag from Run 6.
-- Evidence the downloaded app works.
+- Instructor collaborator access arranged before Run 1 and retained through grading.
+- Live local demonstration at Checkpoint 6; no recording required.
 
 Explain the main-only condition, `GITHUB_TOKEN`, image tags, and why Run 5 blocked
 publication. Distinguish image delivery from deployment; online deployment is not
